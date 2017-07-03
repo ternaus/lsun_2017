@@ -37,9 +37,8 @@ num_mask_channels = 66
 
 def pixel_softmax(y_true, y_pred):
    y_pred = K.reshape(y_pred, (-1, num_mask_channels))
-   y_pred = K.softmax(y_pred)
    y_true = K.reshape(y_true, (-1, num_mask_channels))
-   return K.mean(K.categorical_crossentropy(y_true, y_pred))
+   return K.mean(K.categorical_crossentropy(y_pred, y_true, from_logits=True))
 
 
 def ConvBN2(x, num_filter, stride_size=3):
