@@ -15,13 +15,15 @@ from keras.layers.normalization import BatchNormalization
 
 from keras.optimizers import Nadam
 import pandas as pd
-from keras.backend import binary_crossentropy
+
 from keras.callbacks import ModelCheckpoint, History
 import os
 
 from keras.models import model_from_json
 import datetime
 
+
+__author__ = 'Vladimir Iglovikov'
 
 img_rows = 224
 img_cols = 224
@@ -127,11 +129,21 @@ def form_batch(X_path, y_path, batch_size):
     return X_batch, y_batch
 
 
+def normalize(x):
+    x[:, :, :, 0] -= 103.939
+    x[:, :, :, 1] -= 116.779
+    x[:, :, :, 2] -= 123.68
+
+    return x
+
+
 def batch_generator(X_path, y_path, batch_size):
     while True:
         X_batch, y_batch = form_batch(X_path, y_path, batch_size)
 
         # Add augmentations here
+
+        X_batch = normalize(X_batch)
 
         yield X_batch, y_batch[:, 16:16 + img_rows - 32, 16:16 + img_cols - 32, :]
 
