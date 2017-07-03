@@ -103,13 +103,6 @@ def get_unet0(num_start_filters=32):
     return model
 
 
-def grayscale_to_mask(img):
-    mask = np.zeros((img_rows, img_cols, num_mask_channels))
-    for i in range(num_mask_channels):
-        mask[:, :, i] = (img == i)
-    return mask.astype(np.uint8)
-
-
 def form_batch(X_path, y_path, batch_size):
     image_names = os.listdir(X_path)
 
