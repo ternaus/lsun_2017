@@ -16,11 +16,8 @@ from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Nadam
 import pandas as pd
 from keras.backend import binary_crossentropy
-import threading
-from keras.callbacks import ModelCheckpoint, History, EarlyStopping
+from keras.callbacks import ModelCheckpoint, History
 import os
-
-import random
 
 from keras.models import model_from_json
 import datetime
@@ -34,105 +31,6 @@ smooth = K.epsilon()
 
 num_channels = 3
 num_mask_channels = 66
-
-
-def jaccard_coef(y_true, y_pred):
-    intersection = K.sum(y_true * y_pred, axis=[0, -1, -2])
-    sum_ = K.sum(y_true + y_pred, axis=[0, -1, -2])
-
-    jac = (intersection + smooth) / (sum_ - intersection + smooth)
-
-    return K.mean(jac)
-
-
-def jaccard_coef_int(y_true, y_pred):
-    y_pred_pos = K.round(K.clip(y_pred, 0, 1))
-
-    intersection = K.sum(y_true * y_pred_pos, axis=[0, -1, -2])
-    sum_ = K.sum(y_true + y_pred_pos, axis=[0, -1, -2])
-
-    jac = (intersection + smooth) / (sum_ - intersection + smooth)
-
-    return K.mean(jac)
-
-
-def jaccard_coef_loss(y_true, y_pred):
-    return -K.log(jaccard_coef(y_true, y_pred)) + binary_crossentropy(y_pred, y_true)
-
-
-# def ConvBN(x, n_filter, sz=3):
-#     x = Conv2D(n_filter, (sz, sz), padding='same', kernel_initializer='he_uniform')(x)
-#     x = BatchNormalization()(x)
-#     x = selu()(x)
-#     # x = Dropout(0.5)(x)
-#     return x
-#
-#
-# def ConvBN2(x, n_filter, sz=3):
-#     x = Conv2D(n_filter, (sz, sz), padding='same', kernel_initializer='he_uniform')(x)
-#     x = BatchNormalization()(x)
-#     x = selu(x)
-#     x = Conv2D(n_filter, (sz, sz), padding='same', kernel_initializer='he_uniform')(x)
-#     x = BatchNormalization()(x)
-#     x = selu(x)
-#     # x = Dropout(0.5)(x)
-#     return x
-#
-
-# def get_unet1(isz=ISZ, N_band=num_channels, N_Cls=num_mask_channels, lr=1e-3, ngpus=1):
-#     nflt = 32
-#     inputs = Input((isz, isz, N_band))
-#     stem = BatchNormalization()(inputs)
-#     conv1 = ConvBN2(stem, nflt, 3)
-#     pool1 = MaxPooling2D()(conv1)
-#     conv2 = ConvBN2(pool1, nflt * 2, 3)
-#     pool2 = MaxPooling2D()(conv2)
-#     conv3 = ConvBN2(pool2, nflt * 4, 3)
-#     pool3 = MaxPooling2D()(conv3)
-#     conv4 = ConvBN2(pool3, nflt * 8, 3)
-#     pool4 = MaxPooling2D()(conv4)
-#     conv5 = ConvBN2(pool4, nflt * 8, 3)
-#     up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), conv4])
-#     conv6 = ConvBN2(up6, nflt * 8, 3)
-#     up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), conv3])
-#     conv7 = ConvBN2(up7, nflt * 4, 3)
-#     up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), conv2])
-#     conv8 = ConvBN2(up8, nflt * 2, 3)
-#     up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), conv1])
-#     conv9 = ConvBN2(up9, nflt, 3)
-#     conv10 = Conv2D(N_Cls, (1, 1), activation="sigmoid")(conv9)
-#     model = Model(inputs=inputs, outputs=conv10)
-#     # model.summary()
-#     if ngpus > 1:
-#         model = make_parallel(model, ngpus)
-#     model.compile(loss='binary_crossentropy',
-#                   optimizer='adam',
-#                   metrics=[dice_coef])
-#     return model
-
-
-class threadsafe_iter:
-    """Takes an iterator/generator and makes it thread-safe by
-    serializing call to the `next` method of given iterator/generator.
-    """
-    def __init__(self, it):
-        self.it = it
-        self.lock = threading.Lock()
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        with self.lock:
-            return self.it.next()
-
-
-def threadsafe_generator(f):
-    """A decorator that takes a generator function and makes it thread-safe.
-    """
-    def g(*a, **kw):
-        return threadsafe_iter(f(*a, **kw))
-    return g
 
 
 def pixel_softmax(y_true, y_pred):
@@ -225,13 +123,6 @@ def get_unet0():
     return model
 
 
-def flip_axis(x, axis):
-    x = np.asarray(x).swapaxes(axis, 0)
-    x = x[::-1, ...]
-    x = x.swapaxes(0, axis)
-    return x
-
-
 def grayscale_to_mask(img):
     mask = np.zeros((img_rows, img_cols, num_mask_channels))
     for i in range(num_mask_channels):
@@ -268,32 +159,11 @@ def form_batch(X_path, y_path, batch_size):
     return X_batch, y_batch
 
 
-# @threadsafe_generator
-def batch_generator(X_path, y_path, batch_size, horizontal_flip=False, vertical_flip=False, swap_axis=False):
+def batch_generator(X_path, y_path, batch_size):
     while True:
         X_batch, y_batch = form_batch(X_path, y_path, batch_size)
 
-        # for i in range(X_batch.shape[0]):
-        #     xb = X_batch[i]
-        #     yb = y_batch[i]
-        #
-        #     if horizontal_flip:
-        #         if np.random.random() < 0.5:
-        #             xb = flip_axis(xb, 0)
-        #             yb = flip_axis(yb, 0)
-        #
-        #     if vertical_flip:
-        #         if np.random.random() < 0.5:
-        #             xb = flip_axis(xb, 1)
-        #             yb = flip_axis(yb, 1)
-        #
-        #     if swap_axis:
-        #         if np.random.random() < 0.5:
-        #             xb = xb.swapaxes(0, 1)
-        #             yb = yb.swapaxes(0, 1)
-        #
-        #     X_batch[i] = xb
-        #     y_batch[i] = yb
+        # Add augmentations here
 
         yield X_batch, y_batch[:, 16:16 + img_rows - 32, 16:16 + img_cols - 32, :]
 
@@ -356,10 +226,7 @@ if __name__ == '__main__':
     ]
 
     model.compile(optimizer=Nadam(lr=1e-3), loss=pixel_softmax)
-    # model.compile(optimizer=Nadam(lr=1e-3), loss=jaccard_coef_loss,
-    #               metrics=['categorical_crossentropy', jaccard_coef_int])
-    model.fit_generator(batch_generator(X_train_path, y_train_path, batch_size,
-                                        horizontal_flip=False, vertical_flip=False, swap_axis=False),
+    model.fit_generator(batch_generator(X_train_path, y_train_path, batch_size),
                         steps_per_epoch=500,
                         epochs=nb_epoch,
                         verbose=1,
