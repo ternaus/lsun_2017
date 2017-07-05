@@ -7,14 +7,15 @@ Initial images are decently big. Currently we downscale images. But at the predi
 
 import pandas as pd
 import os
-import cv2
 data_path = '../data'
 from joblib import Parallel, delayed
+from PIL import Image
 
 
 def get_shape(file_name):
-    img = cv2.imread(file_name)
-    height, width, _ = img.shape
+    im = Image.open(file_name)
+    width, height = im.size
+
     return file_name, height, width
 
 
