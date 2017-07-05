@@ -150,6 +150,6 @@ if __name__ == '__main__':
 
         resized_mask = cv2.resize(mask, (original_width, original_height), interpolation=cv2.INTER_LINEAR)
 
-        final_path = file_name.replace('validation/images', 'val_pred').replace('jpg', 'png')
+        final_path = file_name.replace('validation/images', 'val_pred').replace('\.jpg', '.png')
         cv2.imwrite(final_path, resized_mask)
 
