@@ -14,8 +14,9 @@ def downscale(old_file_name):
     img = cv2.imread(os.path.join(old_file_name))
 
     new_file_name = (old_file_name
-                     .replace('validation', 'validation_' + str(min_size))
                      .replace('training', 'training_' + str(min_size))
+                     .replace('validation', 'validation_' + str(min_size))
+                     .replace('testing', 'testing_' + str(min_size))
                      )
 
     height, width, _ = img.shape
@@ -34,7 +35,7 @@ def downscale(old_file_name):
 if __name__ == '__main__':
     data_path = '../data'
 
-    for image_set in ['training', 'validation']:
+    for image_set in ['training', 'validation', 'testing']:
         try:
             print os.path.join(data_path, image_set + '_' + str(min_size))
             os.mkdir(os.path.join(data_path, image_set + '_' + str(min_size)))
@@ -47,11 +48,16 @@ if __name__ == '__main__':
             except:
                 pass
 
-    for image_set in ['training', 'validation']:
-        print
-        print image_set
-        for subset in ['images', 'instances', 'labels']:
-            print subset
+    # for image_set in ['training', 'validation']:
+    #     for subset in ['images', 'instances', 'labels']:
+    #         target_path = os.path.join(data_path, image_set, subset)
+    #         file_names = os.listdir(target_path)
+    #         file_names = [os.path.join(target_path, file_name) for file_name in file_names]
+    #
+    #         result = Parallel(n_jobs=8)(delayed(downscale)(r) for r in file_names)
+
+    for image_set in ['testing']:
+        for subset in ['images']:
             target_path = os.path.join(data_path, image_set, subset)
             file_names = os.listdir(target_path)
             file_names = [os.path.join(target_path, file_name) for file_name in file_names]
