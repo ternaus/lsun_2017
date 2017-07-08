@@ -13,10 +13,11 @@ from keras.layers import BatchNormalization
 
 from keras import backend as K
 from keras.layers import Activation
+from sklearn.utils import shuffle
 
 import cv2
 
-from keras.optimizers import Nadam
+from keras.optimizers import Nadam, SGD
 import pandas as pd
 
 from keras.callbacks import ModelCheckpoint, History
@@ -95,40 +96,40 @@ def get_unet0(num_start_filters=32):
     return model
 
 
-def form_batch(X_path, y_path, batch_size, horizontal_flip=False, vertical_flip=False):
-    image_names = os.listdir(X_path)
-
-    num_images = len(image_names)
-
-    X_batch = np.zeros((batch_size, img_rows, img_cols, num_channels))
-    y_batch = np.zeros((batch_size, img_rows, img_cols))
-
-    for i in range(batch_size):
-        random_image = np.random.randint(0, num_images - 1)
-
-        file_name = image_names[random_image]
-
-        img = cv2.imread(os.path.join(X_path, file_name))
-        img_mask = cv2.imread(os.path.join(y_path, file_name.replace('.jpg', '.png')), 0)
-
-        yb = img_mask
-        xb = img
-
-        if horizontal_flip:
-            if np.random.random() < 0.5:
-                xb = flip_axis(xb, 0)
-                yb = flip_axis(yb, 0)
-
-        if vertical_flip:
-            if np.random.random() < 0.5:
-                xb = flip_axis(xb, 1)
-                yb = flip_axis(yb, 1)
-
-        y_batch[i] = yb
-
-        X_batch[i] = xb
-
-    return X_batch, y_batch
+# def form_batch(X_path, y_path, batch_size, horizontal_flip=False, vertical_flip=False):
+#     image_names = os.listdir(X_path)
+#
+#     num_images = len(image_names)
+#
+#     X_batch = np.zeros((batch_size, img_rows, img_cols, num_channels))
+#     y_batch = np.zeros((batch_size, img_rows, img_cols))
+#
+#     for i in range(batch_size):
+#         random_image = np.random.randint(0, num_images - 1)
+#
+#         file_name = image_names[random_image]
+#
+#         img = cv2.imread(os.path.join(X_path, file_name))
+#         img_mask = cv2.imread(os.path.join(y_path, file_name.replace('.jpg', '.png')), 0)
+#
+#         yb = img_mask
+#         xb = img
+#
+#         if horizontal_flip:
+#             if np.random.random() < 0.5:
+#                 xb = flip_axis(xb, 0)
+#                 yb = flip_axis(yb, 0)
+#
+#         if vertical_flip:
+#             if np.random.random() < 0.5:
+#                 xb = flip_axis(xb, 1)
+#                 yb = flip_axis(yb, 1)
+#
+#         y_batch[i] = yb
+#
+#         X_batch[i] = xb
+#
+#     return X_batch, y_batch
 
 
 def normalize(x):
@@ -147,14 +148,46 @@ def flip_axis(x, axis):
 
 
 def batch_generator(X_path, y_path, batch_size, horizontal_flip=False, vertical_flip=False):
+    X_file_list = os.listdir(X_path)
+
+    num_batches = int(len(X_file_list) / batch_size)
     while True:
-        X_batch, y_batch = form_batch(X_path, y_path, batch_size, horizontal_flip, vertical_flip)
+        for batch_index in range(num_batches):
+            X_batch = np.zeros((batch_size, img_rows, img_cols, num_channels))
+            y_batch = np.zeros((batch_size, img_rows, img_cols))
 
-        # Add augmentations here
+            for i in range(batch_size):
+                img_path = X_file_list[batch_size * batch_index + i]
+                mask_path = X_file_list[batch_size * batch_index + i][:-3] + 'png'
 
-        X_batch = normalize(X_batch)
+                img = cv2.imread(os.path.join(X_path, img_path))
+                img_mask = cv2.imread(os.path.join(y_path, mask_path), 0)
+                yb = img_mask
+                xb = img
 
-        yield X_batch, np.expand_dims(y_batch.astype(np.uint8), 3)
+                if horizontal_flip:
+                    if np.random.random() < 0.5:
+                        xb = flip_axis(xb, 0)
+                        yb = flip_axis(yb, 0)
+
+                if vertical_flip:
+                    if np.random.random() < 0.5:
+                        xb = flip_axis(xb, 1)
+                        yb = flip_axis(yb, 1)
+
+                y_batch[i] = yb
+
+                X_batch[i] = xb
+
+            # X_batch, y_batch = form_batch(X_path, y_path, batch_size, horizontal_flip, vertical_flip)
+
+            # Add augmentations here
+
+            X_batch = normalize(X_batch)
+
+            yield X_batch, np.expand_dims(y_batch.astype(np.uint8), 3)
+
+        X_file_list = shuffle(X_file_list)
 
 
 def save_model(model, cross):
@@ -201,7 +234,7 @@ if __name__ == '__main__':
     print('[{}] Reading train...'.format(str(datetime.datetime.now())))
 
     batch_size = 4
-    nb_epoch = 50
+    nb_epoch = 500
 
     now = datetime.datetime.now()
     suffix = str(now.strftime("%Y-%m-%d-%H-%M"))
@@ -214,10 +247,11 @@ if __name__ == '__main__':
         history
     ]
 
-    model.load_weights('cache/resnet_full_2017-07-06-07-46.hdf5')
+    model.load_weights('cache/resnet_full_2017-07-07-08-40.hdf5')
 
-    model.compile(optimizer=Nadam(lr=1e-4), loss=pixel_softmax)
-    model.fit_generator(batch_generator(X_train_path, y_train_path, batch_size, horizontal_flip=True, vertical_flip=True),
+    model.compile(optimizer=Nadam(lr=1e-5), loss=pixel_softmax)
+
+    model.fit_generator(batch_generator(X_train_path, y_train_path, batch_size, horizontal_flip=False, vertical_flip=True),
                         steps_per_epoch=500,
                         epochs=nb_epoch,
                         verbose=1,

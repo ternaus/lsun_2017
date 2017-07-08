@@ -7,7 +7,7 @@ import os
 from joblib import Parallel, delayed
 import cv2
 
-min_size = 320  # We downscale all images, so that smallest side would be 320
+min_size = 192
 
 
 def downscale(old_file_name):

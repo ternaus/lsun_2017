@@ -191,7 +191,7 @@ if __name__ == '__main__':
     print('[{}] Reading train...'.format(str(datetime.datetime.now())))
 
     batch_size = 24
-    nb_epoch = 10
+    nb_epoch = 50
 
     now = datetime.datetime.now()
     suffix = str(now.strftime("%Y-%m-%d-%H-%M"))
@@ -204,6 +204,7 @@ if __name__ == '__main__':
         history
     ]
 
+    model.load_weights('cache/resnet_full_2017-07-03-12-01.hdf5')
     model.compile(optimizer=Nadam(lr=1e-3), loss=pixel_softmax)
     model.fit_generator(batch_generator(X_train_path, y_train_path, batch_size),
                         steps_per_epoch=500,

@@ -20,7 +20,11 @@ def downscale(old_file_name):
                      .replace('testing', 'testing_new')
                      )
 
-    img_new = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    if 'instances' in new_file_name:
+        img_new = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+    else:
+        img_new = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
     cv2.imwrite(new_file_name, img_new)
 
 if __name__ == '__main__':
